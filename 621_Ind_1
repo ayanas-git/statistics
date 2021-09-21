@@ -1,0 +1,154 @@
+#Greeting----
+#Ayana Andrews-Joseph
+#
+#VCU | School of Business | MDA
+#-------------------------------------------
+
+#Libraries----
+
+library(knitr)
+
+myLibraries <- c("knitr", "magrittr", "markdown", "dplyr", "ggplot2", "rpart", "nnet",
+                 "caret", "rmarkdown", "Rcpp", "cluster", "NeuralNetTools",
+                 "randomForest", "kernlab", "e1071", "dummies", "rgl", "reshape2",
+                 "fpc", "ROCR", "sqldf", "openxlsx", "stringr", "lubridate")
+
+lapply(myLibraries, library, character.only=TRUE)
+#---
+
+#Main Data Load----
+load("C:/Users/OWNER/OneDrive/Desktop/VCU_Work/Data_IN_OUT/eva_2019.rda")
+
+glimpse(eva_2019)
+table(eva_2019$Entity.Description)
+
+#1.	----------------------------------
+#How many SWAM Minority purchases of at least $1,000 were made by 
+#Virginia Commonwealth University (VCU) (Entity.Description)?
+
+# What column names are in Entity.Description? 
+# Get matching spelling/case. Virginia Commonwealth University
+
+
+# Subset VCU data only
+vcu_rows <- eva_2019$Entity.Description == "Virginia Commonwealth University"
+
+
+# LookSee
+show1 <- table(vcu_rows)
+
+# Data
+vcuDat <- eva_2019[vcu_rows == TRUE,]
+
+# Validate only VCU Data
+show2 <- table(vcuDat$Entity.Description)
+show3 <- table(vcuDat$Order.Status)
+show4 <- table(vcuDat$SWAM.Minority)
+
+
+swm_rows <- vcuDat$SWAM.Minority == '1'
+
+# LookSee
+show5 <- table(swm_rows)
+
+#Data
+vcu_swm <- vcuDat[swm_rows == TRUE,]
+
+# Permanant data set
+# write.xlsx(vcu_swm, file="C:/Users/OWNER/OneDrive/Desktop/VCU_Work/Data_IN_OUT/vcu_swm.xlsx", asTable = TRUE, overwrite = TRUE)
+
+# ID purchases where gt 1K. This is for each purchase not total order. 
+# n_distinct() vs. count()
+answer1 <- vcu_swm %>% filter(!is.na(Total.Cost)) %>% count(Total.Cost >= 1000)
+answer1
+
+# Print Answer 1----
+one <- list(show1, show2, orders = show3, swam = show4, show5, answer1)
+
+#~~~~~~~~~~~~~~~~~~~~~ 
+
+#2.	----------------------------------
+#What are the total number of purchases and expenses for VCU for each category 
+#(CATEGORY_DESCRIPTION)?
+vcuDat %>% filter(!is.na(CATEGORY_DESCRIPTION)) %>% count(CATEGORY_DESCRIPTION)
+
+
+v2 <- vcuDat %>% 
+  group_by(CATEGORY_DESCRIPTION) %>% 
+  summarise(tot_Purchases = n(), 
+  tot_Expenses = sum(Total.Cost))
+
+# Format Currency
+
+two <- v2 %>% 
+  mutate(tot_Expenses = scales::dollar(tot_Expenses))
+
+# Print Answer 2----
+two
+#~~~~~~~~~~~~~~~~~~~~~ 
+
+
+#3.	----------------------------------
+# Create a new variable "local" that indicates whether the vendor 
+# has a Richmond address or not. How many VCU purchases are local?
+
+
+vcuDat <- vcuDat %>%
+  dplyr::mutate(local = ifelse(str_detect(Address, regex("Richmond", ignore_case = TRUE)), 1, 0))
+
+
+three <- table(vcuDat$local)[2]
+local <- three
+
+# Print Answer 3----
+local
+#~~~~~~~~~~~~~~~~~~~~~ 
+
+
+#4.	----------------------------------
+# How many VCU purchases qualify for at least one SWAM category?
+
+
+vcuDat <- vcuDat %>% 
+  dplyr::mutate(cat.SWAM = if_else(
+    (SWAM.Minority == 1 
+     | SWAM.Woman == 1
+     | SWAM.Small == 1
+     | SWAM.Micro.Business == 1)
+    ,1,0))
+
+four <- table(vcuDat$cat.SWAM)[2]
+
+# Print Answer 4----
+four
+#~~~~~~~~~~~~~~~~~~~~~ 
+
+
+
+#5.	----------------------------------
+# Create a table of the number of VCU purchases by month.
+
+answer5 <- vcuDat %>% 
+      group_by(monthOrder = months(ORDERDATE)) %>% 
+    summarise(purchases_LI = n(), 
+              purchases_PO = n_distinct(Order..))
+answer5 <- data.frame(answer5)
+
+answer5$monthOrder <- factor(answer5$monthOrder, 
+                          ordered = TRUE,
+                             levels = c("January", "February", "March", "April", 
+                             "May", "June", "July", "August", "September", 
+                             "October", "November", "December"))
+five <- answer5[order(answer5$monthOrder),]
+five
+
+
+# FINAL OUTPUT----
+
+one 
+two
+three
+four
+five
+
+#END----
